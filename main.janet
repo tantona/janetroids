@@ -48,7 +48,7 @@
       :canvas canvas
       :texture (load-texture-from-image canvas)
       :ship (make-ship width height)
-      :asteroids [(spawn-asteroid)]}))
+      :asteroids (map (fn [_] (spawn-asteroid)) (range 3))}))
 
 (defn set-state [key value]
   (set (state key) value))
