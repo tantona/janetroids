@@ -1,6 +1,12 @@
 #!/usr/bin/env janet
 (use jaylib)
 
+(def screen-width 600)
+(def screen-height 600)
+(var state nil)
+
+(math/seedrandom (os/cryptorand 8))
+
 (defn engine/loop [init-fn update-fn draw-fn width height window-title]
   (init-window width height window-title)
   (set-target-fps 60)
@@ -10,8 +16,22 @@
     (draw-fn))
   (close-window))
 
-(defn make-asteroid [x y size]
-  @{:size size :coords [x y]})
+
+(defn make-asteroid [x y size velocity]
+  @{:size size
+    :coords [x y]
+    :velocity velocity})
+
+(defn random-asteroid-velocity []
+  [(* 3 (- (math/random) 0.5))
+   (* 3 (- (math/random) 0.5))])
+
+(defn spawn-asteroid []
+  (make-asteroid
+   (* screen-width (math/random))
+   (* screen-height (math/random))
+   3
+   (random-asteroid-velocity)))
 
 (defn make-state [width height]
   (let [canvas (gen-image-color width height :ray-white)]
@@ -23,11 +43,7 @@
       :ship-position [(/ width 2) (/ height 2)]
       :ship-orientation 0.0
       :ship-velocity [0.0 0.0]
-      :asteroids [(make-asteroid (* width (math/random)) (* height (math/random)) 3)]}))
-
-(def screen-width 600)
-(def screen-height 600)
-(var state nil)
+      :asteroids [(spawn-asteroid)]}))
 
 (defn set-state [key value]
   (set (state key) value))
