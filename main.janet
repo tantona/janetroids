@@ -16,6 +16,8 @@
     (draw-fn))
   (close-window))
 
+(defn asteroid-radius [asteroid]
+  (* (asteroid :size) 15))
 
 (defn make-asteroid [x y size velocity]
   @{:size size
@@ -33,16 +35,19 @@
    3
    (random-asteroid-velocity)))
 
+(defn make-ship [width height]
+  @{:size 25
+  :position [(/ width 2) (/ height 2)]
+  :orientation 0.0
+  :velocity [0.0 0.0]})
+
 (defn make-state [width height]
   (let [canvas (gen-image-color width height :ray-white)]
     @{:screen-width width
       :screen-height height
       :canvas canvas
       :texture (load-texture-from-image canvas)
-      :ship-size 25
-      :ship-position [(/ width 2) (/ height 2)]
-      :ship-orientation 0.0
-      :ship-velocity [0.0 0.0]
+      :ship (make-ship width height)
       :asteroids [(spawn-asteroid)]}))
 
 (defn set-state [key value]
@@ -58,12 +63,11 @@
   [(+ (get v1 0) (get v2 0)) (+ (get v1 1) (get v2 1))])
 
 (defn calculate-thrust-vector []
-  [(* (math/cos (state :ship-orientation)) 0.05)
-   (* (math/sin (state :ship-orientation)) 0.05)])
+  [(* (math/cos ((state :ship) :orientation)) 0.05)
+   (* (math/sin ((state :ship) :orientation)) 0.05)])
 
 (defn calculate-ship-velocity []
-  (do (print (get (calculate-thrust-vector) 0))
-    (vector-add (state :ship-velocity) (calculate-thrust-vector))))
+  (vector-add ((state :ship) :velocity) (calculate-thrust-vector)))
 
 (defn vector-wrap [v modulus]
   [(if (< (v 0) 0)
@@ -74,46 +78,88 @@
      (% (math/abs (v 1)) modulus))])
 
 (defn move-ship []
-  (set-state :ship-position
-             (vector-wrap (vector-add (state :ship-position) (state :ship-velocity)) screen-width)))
+  (let [ship (state :ship)]
+    (set (ship :position)
+               (vector-wrap (vector-add (ship :position) (ship :velocity)) screen-width))))
+
+(defn move-asteroid [asteroid]
+    (set (asteroid :coords)
+        (vector-wrap (vector-add (asteroid :coords) (asteroid :velocity)) (state :screen-width))))
+
+(defn move-asteroids []
+    (loop [asteroid :in (state :asteroids)]
+        (move-asteroid asteroid)))
+
+(defn point-distance [a b]
+  (math/sqrt
+    (+
+      (math/pow (- (a 0) (b 0)) 2)
+      (math/pow (- (a 1) (b 1)) 2))))
+
+(defn point-in-circle? [point circle]
+  (let [distance (point-distance point (circle :center))
+        radius (circle :radius)]
+    (< distance radius)))
 
 (defn find-ship-center []
-  (let [ship-position (state :ship-position)
+  (let [ship (state :ship)
+        ship-position (ship :position)
         ship-x (ship-position 0)
         ship-y (ship-position 1)
-        ship-size (state :ship-size)]
+        ship-size (ship :size)]
     [(/ (+ ship-x ship-x (+ ship-x ship-size)) 3)
-     (/ (+ ship-y ship-y (+ ship-y ship-size)) 3)]))
+    (/ (+ ship-y ship-y (+ ship-y ship-size)) 3)]))
 
 (defn rotate-point [point]
-  (let [x1 (point 0)
-        y1 (point 1)
-        center (find-ship-center)
-        x0 (center 0)
-        y0 (center 1)
-        theta (state :ship-orientation)]
-    [(- (* (- x1 x0) (math/cos theta)) (* (- y1 y0) (math/sin theta)))
-     (+ (* (- y1 y0) (math/cos theta)) (* (- x1 x0) (math/sin theta)))]))
+  (let [ship (state :ship)
+      x1 (point 0)
+      y1 (point 1)
+      center (find-ship-center)
+      x0 (center 0)
+      y0 (center 1)
+      theta (ship :orientation)]
+  [(- (* (- x1 x0) (math/cos theta)) (* (- y1 y0) (math/sin theta)))
+   (+ (* (- y1 y0) (math/cos theta)) (* (- x1 x0) (math/sin theta)))]))
 
+(defn ship-points []
+  (let [ship (state :ship)
+    ship-position (ship :position)
+    ship-x (ship-position 0)
+    ship-y (ship-position 1)
+    ship-size (ship :size)
+    ship-center (find-ship-center)
+    p1 (vector-add (rotate-point [ship-x ship-y]) ship-center)
+    p2 (vector-add (rotate-point [ship-x (+ ship-y ship-size)]) ship-center)
+    p3 (vector-add (rotate-point [(+ ship-x (+ ship-size)) ship-y]) ship-center)]
+  [p1 p2 p3]))
+
+(defn asteroid-collides-ship? [asteroid]
+  (let [circle @{:center (asteroid :coords) :radius (asteroid-radius asteroid)}]
+    (any? (map (fn [point] (point-in-circle? point circle)) (ship-points)))))
+
+(defn ship-collides? []
+  (any? (map asteroid-collides-ship? (state :asteroids))))
+
+(defn handle-ship-collisions []
+  (if (ship-collides?)
+    (os/exit 1)))
 
 (defn handle-keyboard-input []
-  (if (key-down? :left) (set-state :ship-orientation (- (get-state :ship-orientation) 0.05)))
-  (if (key-down? :right) (set-state :ship-orientation (+ (get-state :ship-orientation) 0.05)))
-  (if (key-down? :up) (set-state :ship-velocity (calculate-ship-velocity))))
+  (let [ship (state :ship)]
+    (if (key-down? :left) (set (ship :orientation) (- (ship :orientation) 0.05)))
+    (if (key-down? :right) (set (ship :orientation) (+ (ship :orientation) 0.05)))
+    (if (key-down? :up) (set (ship :velocity) (calculate-ship-velocity)))))
 
 (defn my-update []
-  (do
-    (handle-keyboard-input)
-    (move-ship)
-    (print (state :ship-orientation) ", "
-           (state :ship-velocity) ", "
-           (get (state :ship-position) 0) " "
-           (get (state :ship-position) 1))))
+  (handle-keyboard-input)
+  (move-ship)
+  (move-asteroids)
+  (handle-ship-collisions))
 
 (defn draw-asteroid [asteroid]
   (draw-circle
     (splice (map math/floor (asteroid :coords)))
-    (* (asteroid :size) 30)
+    (asteroid-radius asteroid)
     :ray-white))
 
 (defn draw-asteroids []
@@ -121,18 +167,7 @@
     (draw-asteroid asteroid)))
 
 (defn draw-ship [state]
-  (let [ship-position (state :ship-position)
-        ship-x (ship-position 0)
-        ship-y (ship-position 1)
-        ship-size (state :ship-size)
-        ship-center (find-ship-center)
-        p1 (vector-add (rotate-point [ship-x ship-y]) ship-center)
-        p2 (vector-add (rotate-point [ship-x (+ ship-y ship-size)]) ship-center)
-        p3 (vector-add (rotate-point [(+ ship-x (+ ship-size)) ship-y]) ship-center)]
-    (draw-triangle
-      p1
-      p2
-      p3 :ray-white)))
+  (draw-triangle (splice (ship-points)) :ray-white))
 
 (defn spawn-asteroid [])
 
