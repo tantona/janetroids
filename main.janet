@@ -21,8 +21,18 @@
 
 (defn make-asteroid [x y size velocity]
   @{:size size
-    :coords [x y]
+    :position [x y]
     :velocity velocity})
+
+(defn make-bullet [pos velocity]
+  @{:position pos
+    :velocity velocity})
+
+(defn make-ship [width height]
+  @{:size 25
+    :position [(/ width 2) (/ height 2)]
+    :orientation 0.0
+    :velocity [0.0 0.0]})
 
 (defn random-asteroid-velocity []
   [(* 3 (- (math/random) 0.5))
@@ -30,16 +40,11 @@
 
 (defn spawn-asteroid []
   (make-asteroid
-   (* screen-width (math/random))
-   (* screen-height (math/random))
-   3
-   (random-asteroid-velocity)))
+    (* screen-width (math/random))
+    (* screen-height (math/random))
+    3
+    (random-asteroid-velocity)))
 
-(defn make-ship [width height]
-  @{:size 25
-  :position [(/ width 2) (/ height 2)]
-  :orientation 0.0
-  :velocity [0.0 0.0]})
 
 (defn make-state [width height]
   (let [canvas (gen-image-color width height :ray-white)]
@@ -48,7 +53,8 @@
       :canvas canvas
       :texture (load-texture-from-image canvas)
       :ship (make-ship width height)
-      :asteroids (map (fn [_] (spawn-asteroid)) (range 3))}))
+      :asteroids (map (fn [_] (spawn-asteroid)) (range 3))
+      :bullets @[]}))
 
 (defn set-state [key value]
   (set (state key) value))
@@ -61,6 +67,9 @@
 
 (defn vector-add [v1 v2]
   [(+ (get v1 0) (get v2 0)) (+ (get v1 1) (get v2 1))])
+
+(defn vector-mul [v1 v2]
+  [(* (get v1 0) (get v2 0)) (* (get v1 1) (get v2 1))])
 
 (defn calculate-thrust-vector []
   [(* (math/cos ((state :ship) :orientation)) 0.05)
@@ -80,15 +89,28 @@
 (defn move-ship []
   (let [ship (state :ship)]
     (set (ship :position)
-               (vector-wrap (vector-add (ship :position) (ship :velocity)) screen-width))))
+         (vector-wrap (vector-add (ship :position) (ship :velocity)) screen-width))))
+
+
+(defn move-bullet [i]
+  (let [bullet ((state :bullets) i)]
+    (cond
+      (set (bullet :position) (vector-add (bullet :position) (bullet :velocity))))))
+
+(defn move-bullets []
+  (var i 0)
+  (def len (length (state :bullets)))
+  (while (< i len)
+    (move-bullet i)
+    (++ i)))
 
 (defn move-asteroid [asteroid]
-    (set (asteroid :coords)
-        (vector-wrap (vector-add (asteroid :coords) (asteroid :velocity)) (state :screen-width))))
+  (set (asteroid :position)
+       (vector-wrap (vector-add (asteroid :position) (asteroid :velocity)) (state :screen-width))))
 
 (defn move-asteroids []
-    (loop [asteroid :in (state :asteroids)]
-        (move-asteroid asteroid)))
+  (loop [asteroid :in (state :asteroids)]
+    (move-asteroid asteroid)))
 
 (defn point-distance [a b]
   (math/sqrt
@@ -108,33 +130,33 @@
         ship-y (ship-position 1)
         ship-size (ship :size)]
     [(/ (+ ship-x ship-x (+ ship-x ship-size)) 3)
-    (/ (+ ship-y ship-y (+ ship-y ship-size)) 3)]))
+     (/ (+ ship-y ship-y (+ ship-y ship-size)) 3)]))
 
 (defn rotate-point [point]
   (let [ship (state :ship)
-      x1 (point 0)
-      y1 (point 1)
-      center (find-ship-center)
-      x0 (center 0)
-      y0 (center 1)
-      theta (ship :orientation)]
-  [(- (* (- x1 x0) (math/cos theta)) (* (- y1 y0) (math/sin theta)))
-   (+ (* (- y1 y0) (math/cos theta)) (* (- x1 x0) (math/sin theta)))]))
+        x1 (point 0)
+        y1 (point 1)
+        center (find-ship-center)
+        x0 (center 0)
+        y0 (center 1)
+        theta (ship :orientation)]
+    [(- (* (- x1 x0) (math/cos theta)) (* (- y1 y0) (math/sin theta)))
+     (+ (* (- y1 y0) (math/cos theta)) (* (- x1 x0) (math/sin theta)))]))
 
 (defn ship-points []
   (let [ship (state :ship)
-    ship-position (ship :position)
-    ship-x (ship-position 0)
-    ship-y (ship-position 1)
-    ship-size (ship :size)
-    ship-center (find-ship-center)
-    p1 (vector-add (rotate-point [ship-x ship-y]) ship-center)
-    p2 (vector-add (rotate-point [ship-x (+ ship-y ship-size)]) ship-center)
-    p3 (vector-add (rotate-point [(+ ship-x (+ ship-size)) ship-y]) ship-center)]
-  [p1 p2 p3]))
+        ship-position (ship :position)
+        ship-x (ship-position 0)
+        ship-y (ship-position 1)
+        ship-size (ship :size)
+        ship-center (find-ship-center)
+        p1 (vector-add (rotate-point [ship-x ship-y]) ship-center)
+        p2 (vector-add (rotate-point [ship-x (+ ship-y ship-size)]) ship-center)
+        p3 (vector-add (rotate-point [(+ ship-x (+ ship-size)) ship-y]) ship-center)]
+    [p1 p2 p3]))
 
 (defn asteroid-collides-ship? [asteroid]
-  (let [circle @{:center (asteroid :coords) :radius (asteroid-radius asteroid)}]
+  (let [circle @{:center (asteroid :position) :radius (asteroid-radius asteroid)}]
     (any? (map (fn [point] (point-in-circle? point circle)) (ship-points)))))
 
 (defn ship-collides? []
@@ -142,23 +164,24 @@
 
 (defn handle-ship-collisions []
   (if (ship-collides?)
-    (os/exit 1)))
+    # (os/exit 1)
+    (print "boom")))
+
+(defn spawn-bullet [ship]
+  (let [v (vector-mul [100 100] (calculate-thrust-vector))]
+    (make-bullet (ship :position) v)))
 
 (defn handle-keyboard-input []
   (let [ship (state :ship)]
     (if (key-down? :left) (set (ship :orientation) (- (ship :orientation) 0.05)))
     (if (key-down? :right) (set (ship :orientation) (+ (ship :orientation) 0.05)))
-    (if (key-down? :up) (set (ship :velocity) (calculate-ship-velocity)))))
+    (if (key-down? :up) (set (ship :velocity) (calculate-ship-velocity)))
+    (if (key-pressed? :space) (array/push (state :bullets) (spawn-bullet ship)))))
 
-(defn my-update []
-  (handle-keyboard-input)
-  (move-ship)
-  (move-asteroids)
-  (handle-ship-collisions))
 
 (defn draw-asteroid [asteroid]
   (draw-circle
-    (splice (map math/floor (asteroid :coords)))
+    (splice (map math/floor (asteroid :position)))
     (asteroid-radius asteroid)
     :ray-white))
 
@@ -169,13 +192,27 @@
 (defn draw-ship [state]
   (draw-triangle (splice (ship-points)) :ray-white))
 
-(defn spawn-asteroid [])
+(defn draw-bullet [bullet]
+  (draw-circle (splice (map math/floor (bullet :position))) 2 :ray-white))
 
-(defn my-draw []
+(defn draw-bullets []
+  (loop [bullet :in (state :bullets)]
+    (draw-bullet bullet)))
+
+
+(defn update-state []
+  (handle-keyboard-input)
+  (move-ship)
+  (move-bullets)
+  (move-asteroids)
+  (handle-ship-collisions))
+
+(defn draw []
   (begin-drawing)
   (clear-background :black)
   (draw-ship state)
+  (draw-bullets)
   (draw-asteroids)
   (end-drawing))
 
-(engine/loop my-init my-update my-draw screen-width screen-height "Asteroids")
+(engine/loop my-init update-state draw screen-width screen-height "Asteroids")
