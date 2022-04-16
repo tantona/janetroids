@@ -130,7 +130,7 @@
         ship-y (ship-position 1)
         ship-size (ship :size)]
     [(/ (+ ship-x ship-x (+ ship-x ship-size)) 3)
-     (/ (+ ship-y ship-y (+ ship-y ship-size)) 3)]))
+     (/ (+ ship-y (+ ship-y ship-size) (/ (+ (+ ship-y ship-size) ship-y) 2)) 3)]))
 
 (defn rotate-point [point]
   (let [ship (state :ship)
@@ -152,7 +152,7 @@
         ship-center (find-ship-center)
         p1 (vector-add (rotate-point [ship-x ship-y]) ship-center)
         p2 (vector-add (rotate-point [ship-x (+ ship-y ship-size)]) ship-center)
-        p3 (vector-add (rotate-point [(+ ship-x (+ ship-size)) ship-y]) ship-center)]
+        p3 (vector-add (rotate-point [(+ ship-x ship-size) (/ (+ (+ ship-y ship-size) ship-y) 2)]) ship-center)]
     [p1 p2 p3]))
 
 (defn asteroid-collides-ship? [asteroid]
@@ -169,7 +169,7 @@
 
 (defn spawn-bullet [ship]
   (let [v (vector-mul [100 100] (calculate-thrust-vector))]
-    (make-bullet (ship :position) v)))
+    (make-bullet (find-ship-center) v)))
 
 (defn handle-keyboard-input []
   (let [ship (state :ship)]
