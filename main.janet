@@ -28,6 +28,10 @@
   [(+ (v1 0) (v2 0))
    (+ (v1 1) (v2 1))])
 
+(defn vector-sub [v1 v2]
+  [(- (v1 0) (v2 0))
+   (- (v1 1) (v2 1))])
+
 (defn vector-mul [v1 v2]
   [(* (v1 0) (v2 0))
    (* (v1 1) (v2 1))])
@@ -128,9 +132,6 @@
         magnitude 5]
     [(* (math/cos angle) magnitude)
      (* (math/sin angle) magnitude)]))
-
-(defn calculate-ship-velocity []
-  (vector-add ((state :ship) :velocity) (ship-thrust-vector)))
 
 (defn move-ship []
   (let [ship (state :ship)]
@@ -286,7 +287,10 @@
   (let [ship (state :ship)]
     (if (key-down? :left) (set (ship :orientation) (- (ship :orientation) 0.05)))
     (if (key-down? :right) (set (ship :orientation) (+ (ship :orientation) 0.05)))
-    (if (key-down? :up) (set (ship :velocity) (calculate-ship-velocity)))
+    (if (key-down? :up)
+      (set (ship :velocity) (vector-add (ship :velocity) (ship-thrust-vector))))
+    (if (key-down? :down)
+      (set (ship :velocity) (vector-sub (ship :velocity) (ship-thrust-vector))))
     (if (key-pressed? :space)
       (if (state :alive)
         (array/push (state :bullets) (spawn-bullet ship))
