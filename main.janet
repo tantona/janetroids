@@ -115,12 +115,20 @@
 (defn get-state [key]
   (state key))
 
-(defn calculate-thrust-vector []
-  [(* (math/cos ((state :ship) :orientation)) 0.05)
-   (* (math/sin ((state :ship) :orientation)) 0.05)])
+(defn ship-thrust-vector []
+  (let [angle ((state :ship) :orientation)
+        magnitude 0.05]
+    [(* (math/cos angle) magnitude)
+     (* (math/sin angle) magnitude)]))
+
+(defn bullet-firing-vector []
+  (let [angle ((state :ship) :orientation)
+        magnitude 5]
+    [(* (math/cos angle) magnitude)
+     (* (math/sin angle) magnitude)]))
 
 (defn calculate-ship-velocity []
-  (vector-add ((state :ship) :velocity) (calculate-thrust-vector)))
+  (vector-add ((state :ship) :velocity) (ship-thrust-vector)))
 
 (defn move-ship []
   (let [ship (state :ship)]
@@ -128,10 +136,9 @@
          (vector-wrap (vector-add (ship :position) (ship :velocity)) screen-width))))
 
 (defn move-bullet [i]
-  (let [bullet ((state :bullets) i)]
-      (set (bullet :position)
-           (vector-add (bullet :position)
-                       (bullet :velocity)))
+  (let [bullet ((state :bullets) i)
+        new-position (vector-add (bullet :position) (bullet :velocity))]
+      (set (bullet :position) (vector-wrap new-position screen-width))
       (set (bullet :age) (inc (bullet :age)))))
 
 (defn move-bullets []
@@ -225,8 +232,8 @@
     (each asteroid colliding-asteroids (explode-asteroid asteroid))))
 
 (defn spawn-bullet [ship]
-  (let [v (vector-mul [100 100] (calculate-thrust-vector))]
-    (make-bullet (find-ship-center) v)))
+  (let [bullet-velocity (vector-add ((state :ship) :velocity) (bullet-firing-vector))]
+    (make-bullet (find-ship-center) bullet-velocity)))
 
 ##############
 # draw calls #
