@@ -19,6 +19,40 @@
 (defn asteroid-radius [asteroid]
   (* (asteroid :size) 15))
 
+
+##############
+# math utils #
+##############
+
+(defn vector-add [v1 v2]
+  [(+ (get v1 0) (get v2 0)) (+ (get v1 1) (get v2 1))])
+
+(defn vector-mul [v1 v2]
+  [(* (get v1 0) (get v2 0)) (* (get v1 1) (get v2 1))])
+
+(defn vector-wrap [v modulus]
+  [(if (< (v 0) 0)
+     (+ 600 (v 0))
+     (% (math/abs (v 0)) modulus))
+   (if (< (v 1) 0)
+     (+ 600 (v 1))
+     (% (math/abs (v 1)) modulus))])
+
+(defn point-distance [a b]
+  (math/sqrt
+    (+
+      (math/pow (- (a 0) (b 0)) 2)
+      (math/pow (- (a 1) (b 1)) 2))))
+
+(defn point-in-circle? [point circle]
+  (let [distance (point-distance point (circle :center))
+        radius (circle :radius)]
+    (< distance radius)))
+
+################
+# constructors #
+################
+
 (defn make-asteroid [x y size velocity]
   @{:size size
     :position [x y]
@@ -45,7 +79,6 @@
     3
     (random-asteroid-velocity)))
 
-
 (defn make-state [width height]
   (let [canvas (gen-image-color width height :ray-white)]
     @{:screen-width width
@@ -62,15 +95,6 @@
 (defn get-state [key]
   (state key))
 
-(defn my-init []
-  (set state (make-state screen-width screen-height)))
-
-(defn vector-add [v1 v2]
-  [(+ (get v1 0) (get v2 0)) (+ (get v1 1) (get v2 1))])
-
-(defn vector-mul [v1 v2]
-  [(* (get v1 0) (get v2 0)) (* (get v1 1) (get v2 1))])
-
 (defn calculate-thrust-vector []
   [(* (math/cos ((state :ship) :orientation)) 0.05)
    (* (math/sin ((state :ship) :orientation)) 0.05)])
@@ -78,19 +102,10 @@
 (defn calculate-ship-velocity []
   (vector-add ((state :ship) :velocity) (calculate-thrust-vector)))
 
-(defn vector-wrap [v modulus]
-  [(if (< (v 0) 0)
-     (+ 600 (v 0))
-     (% (math/abs (v 0)) modulus))
-   (if (< (v 1) 0)
-     (+ 600 (v 1))
-     (% (math/abs (v 1)) modulus))])
-
 (defn move-ship []
   (let [ship (state :ship)]
     (set (ship :position)
          (vector-wrap (vector-add (ship :position) (ship :velocity)) screen-width))))
-
 
 (defn move-bullet [i]
   (let [bullet ((state :bullets) i)]
@@ -111,17 +126,6 @@
 (defn move-asteroids []
   (loop [asteroid :in (state :asteroids)]
     (move-asteroid asteroid)))
-
-(defn point-distance [a b]
-  (math/sqrt
-    (+
-      (math/pow (- (a 0) (b 0)) 2)
-      (math/pow (- (a 1) (b 1)) 2))))
-
-(defn point-in-circle? [point circle]
-  (let [distance (point-distance point (circle :center))
-        radius (circle :radius)]
-    (< distance radius)))
 
 (defn find-ship-center []
   (let [ship (state :ship)
@@ -155,6 +159,10 @@
         p3 (vector-add (rotate-point [(+ ship-x ship-size) (/ (+ (+ ship-y ship-size) ship-y) 2)]) ship-center)]
     [p1 p2 p3]))
 
+##############
+# collisions #
+##############
+
 (defn asteroid-collides-ship? [asteroid]
   (let [circle @{:center (asteroid :position) :radius (asteroid-radius asteroid)}]
     (any? (map (fn [point] (point-in-circle? point circle)) (ship-points)))))
@@ -171,13 +179,9 @@
   (let [v (vector-mul [100 100] (calculate-thrust-vector))]
     (make-bullet (find-ship-center) v)))
 
-(defn handle-keyboard-input []
-  (let [ship (state :ship)]
-    (if (key-down? :left) (set (ship :orientation) (- (ship :orientation) 0.05)))
-    (if (key-down? :right) (set (ship :orientation) (+ (ship :orientation) 0.05)))
-    (if (key-down? :up) (set (ship :velocity) (calculate-ship-velocity)))
-    (if (key-pressed? :space) (array/push (state :bullets) (spawn-bullet ship)))))
-
+##############
+# draw calls #
+##############
 
 (defn draw-asteroid [asteroid]
   (draw-circle
@@ -199,6 +203,19 @@
   (loop [bullet :in (state :bullets)]
     (draw-bullet bullet)))
 
+(defn handle-keyboard-input []
+  (let [ship (state :ship)]
+    (if (key-down? :left) (set (ship :orientation) (- (ship :orientation) 0.05)))
+    (if (key-down? :right) (set (ship :orientation) (+ (ship :orientation) 0.05)))
+    (if (key-down? :up) (set (ship :velocity) (calculate-ship-velocity)))
+    (if (key-pressed? :space) (array/push (state :bullets) (spawn-bullet ship)))))
+
+######################
+# grip it and rip it #
+######################
+
+(defn my-init []
+  (set state (make-state screen-width screen-height)))
 
 (defn update-state []
   (handle-keyboard-input)
