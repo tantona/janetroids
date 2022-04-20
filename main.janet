@@ -53,12 +53,24 @@
 # constructors #
 ################
 
-(defn random-asteroid-velocity [size]
-  (let [base-speed 2]
+(defn asteroid-speed [size]
+  (let [base-speed 1]
     (var speed base-speed)
     (repeat (- 3 size) (set speed (* 1.5 speed)))
+    speed))
+
+# velocity based on random x and y components
+(defn random-asteroid-velocity0 [size]
+  (let [speed (asteroid-speed size)]
     [(* speed (- (math/random) 0.5))
-    (* speed (- (math/random) 0.5))]))
+     (* speed (- (math/random) 0.5))]))
+
+# veolcity based on fixed speed in a random direction
+(defn random-asteroid-velocity [size]
+  (let [speed (asteroid-speed size)
+        angle (* (math/random) math/pi)]
+    [(* speed (math/cos angle))
+     (* speed (math/sin angle))]))
 
 (defn make-asteroid [&opt x y size velocity]
   (default size 3)
