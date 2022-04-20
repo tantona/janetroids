@@ -18,8 +18,7 @@
   (close-window))
 
 (defn asteroid-radius [asteroid]
-  (* (asteroid :size) 15))
-
+  (* (asteroid :size) 10))
 
 ##############
 # math utils #
@@ -54,7 +53,18 @@
 # constructors #
 ################
 
-(defn make-asteroid [x y size velocity]
+(defn random-asteroid-velocity [size]
+  (let [base-speed 3]
+    (var speed base-speed)
+    (repeat (- 3 size) (set speed (* 1.5 speed)))
+    [(* speed (- (math/random) 0.5))
+    (* speed (- (math/random) 0.5))]))
+
+(defn make-asteroid [&opt x y size velocity]
+  (default size 3)
+  (default x (* screen-width (math/random)))
+  (default y (* screen-height (math/random)))
+  (default velocity (random-asteroid-velocity size))
   @{:size size
     :position [x y]
     :velocity velocity})
@@ -70,16 +80,10 @@
     :orientation 0.0
     :velocity [0.0 0.0]})
 
-(defn random-asteroid-velocity []
-  [(* 3 (- (math/random) 0.5))
-   (* 3 (- (math/random) 0.5))])
-
-(defn spawn-asteroid []
-  (make-asteroid
-    (* screen-width (math/random))
-    (* screen-height (math/random))
-    3
-    (random-asteroid-velocity)))
+(defn spawn-asteroid [&opt size position]
+  (let [x (position 0)
+        y (position 1)]
+    (array/push (state :asteroids) (make-asteroid x y size))))
 
 (defn make-state [width height]
   (let [canvas (gen-image-color width height :ray-white)]
@@ -88,7 +92,7 @@
       :canvas canvas
       :texture (load-texture-from-image canvas)
       :ship (make-ship width height)
-      :asteroids (map (fn [_] (spawn-asteroid)) (range 3))
+      :asteroids (map (fn [_] (make-asteroid)) (range 3))
       :bullets @[]}))
 
 (defn set-state [key value]
@@ -178,6 +182,34 @@
   (if (ship-collides?)
     (os/exit 1)))
 
+(defn asteroid-collides-bullet? [asteroid bullet]
+  (let [circle @{:center (asteroid :position) :radius (asteroid-radius asteroid)}]
+    (point-in-circle? (bullet :position) circle)))
+
+(defn find-bullet-collisions []
+  (let [collisions @[]]
+    (loop [bullet :in (state :bullets)]
+      (loop [asteroid :in (state :asteroids)]
+        (if (asteroid-collides-bullet? asteroid bullet)
+          (array/push collisions [asteroid bullet]))))
+    collisions))
+
+(defn explode-asteroid [asteroid]
+  (let [new-asteroids @[]]
+    (if (> (asteroid :size) 1)
+      (do
+        (spawn-asteroid (-- (asteroid :size)) (asteroid :position))
+        (spawn-asteroid (-- (asteroid :size)) (asteroid :position))))
+    (set (state :asteroids) (filter (fn [item] (not (= asteroid item))) (state :asteroids)))))
+
+(defn handle-bullet-collisions []
+  (let [collisions (find-bullet-collisions)
+        colliding-bullets (map last collisions)
+        colliding-asteroids (map first collisions)
+        remaining-bullets (filter (fn [bullet] (index-of bullet colliding-bullets)) (state :bullets))]
+        (set (state :bullets) remaining-bullets)
+    (each asteroid colliding-asteroids (explode-asteroid asteroid))))
+
 (defn spawn-bullet [ship]
   (let [v (vector-mul [100 100] (calculate-thrust-vector))]
     (make-bullet (find-ship-center) v)))
@@ -230,7 +262,8 @@
   (move-bullets)
   (move-asteroids)
   (handle-ship-collisions)
-  (cull-bullets))
+  (cull-bullets)
+  (handle-bullet-collisions))
 
 (defn draw []
   (begin-drawing)
