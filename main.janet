@@ -76,8 +76,8 @@
 
 (defn make-asteroid [&opt x y size velocity]
   (default size 3)
-  (default x (* screen-width (math/random)))
-  (default y (* screen-height (math/random)))
+  (default x (* (/ screen-width 2) (- (math/random) 0.5)))
+  (default y (* (/ screen-height 2) (- (math/random) 0.5)))
   (default velocity (random-asteroid-velocity size))
   @{:size size
     :position [x y]
