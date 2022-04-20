@@ -76,8 +76,8 @@
 
 (defn make-asteroid [&opt x y size velocity]
   (default size 3)
-  (default x (* (/ screen-width 2) (- (math/random) 0.5)))
-  (default y (* (/ screen-height 2) (- (math/random) 0.5)))
+  (default x (* (* screen-width 0.7) (- (math/random) 0.5)))
+  (default y (* (* screen-height 0.7) (- (math/random) 0.5)))
   (default velocity (random-asteroid-velocity size))
   @{:size size
     :position [x y]
@@ -107,7 +107,8 @@
       :texture (load-texture-from-image canvas)
       :ship (make-ship width height)
       :asteroids (map (fn [_] (make-asteroid)) (range 3))
-      :bullets @[]}))
+      :bullets @[]
+      :alive true}))
 
 (defn set-state [key value]
   (set (state key) value))
@@ -201,7 +202,7 @@
 
 (defn handle-ship-collisions []
   (if (ship-collides?)
-    (os/exit 1)))
+    (set (state :alive) false)))
 
 (defn asteroid-collides-bullet? [asteroid bullet]
   (let [circle @{:center (asteroid :position) :radius (asteroid-radius asteroid)}]
@@ -249,7 +250,7 @@
   (loop [asteroid :in (state :asteroids)]
     (draw-asteroid asteroid)))
 
-(defn draw-ship [state]
+(defn draw-ship []
   (draw-triangle (splice (ship-points)) :ray-white))
 
 (defn draw-bullet [bullet]
@@ -259,23 +260,34 @@
   (loop [bullet :in (state :bullets)]
     (draw-bullet bullet)))
 
+(defn draw-wasted []
+  (let [text "wasted"
+        font-size 48
+        text-width (measure-text text font-size)
+        x (- (/ screen-width 2) (/ text-width 2))
+        y (/ screen-height 2)]
+    (draw-text text (math/floor x) (math/floor y) font-size :red)))
+
 (defn cull-bullets []
   (set (state :bullets)
        (filter (fn (x) (< (x :age) max-bullet-age)) (state :bullets))))
 
+(defn my-init []
+  (set state (make-state screen-width screen-height)))
+    
 (defn handle-keyboard-input []
   (let [ship (state :ship)]
     (if (key-down? :left) (set (ship :orientation) (- (ship :orientation) 0.05)))
     (if (key-down? :right) (set (ship :orientation) (+ (ship :orientation) 0.05)))
     (if (key-down? :up) (set (ship :velocity) (calculate-ship-velocity)))
-    (if (key-pressed? :space) (array/push (state :bullets) (spawn-bullet ship)))))
+    (if (key-pressed? :space)
+      (if (state :alive)
+        (array/push (state :bullets) (spawn-bullet ship))
+        (my-init)))))
 
 ######################
 # grip it and rip it #
 ######################
-
-(defn my-init []
-  (set state (make-state screen-width screen-height)))
 
 (defn update-state []
   (handle-keyboard-input)
@@ -289,7 +301,9 @@
 (defn draw []
   (begin-drawing)
   (clear-background :black)
-  (draw-ship state)
+  (if (state :alive)
+    (draw-ship)
+    (draw-wasted))
   (draw-bullets)
   (draw-asteroids)
   (end-drawing))
