@@ -25,10 +25,12 @@
 ##############
 
 (defn vector-add [v1 v2]
-  [(+ (get v1 0) (get v2 0)) (+ (get v1 1) (get v2 1))])
+  [(+ (v1 0) (v2 0))
+   (+ (v1 1) (v2 1))])
 
 (defn vector-mul [v1 v2]
-  [(* (get v1 0) (get v2 0)) (* (get v1 1) (get v2 1))])
+  [(* (v1 0) (v2 0))
+   (* (v1 1) (v2 1))])
 
 (defn vector-wrap [v modulus]
   [(if (< (v 0) 0)
