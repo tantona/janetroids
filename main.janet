@@ -5,6 +5,7 @@
 (def screen-height 600)
 (def max-bullet-age 60)
 (var state nil)
+(var frame-counter -1)
 
 (math/seedrandom (os/cryptorand 8))
 
@@ -105,7 +106,7 @@
     (array/push (state :asteroids) (make-asteroid x y size))))
 
 (defn make-state [width height]
-  (let [canvas (gen-image-color width height :ray-white)]
+  (let [canvas (gen-image-color width height :white)]
     @{:screen-width width
       :screen-height height
       :canvas canvas
@@ -197,6 +198,49 @@
         translated-rotated-points (map (fn [p] (vector-add ship-center p)) rotated-points)]
     translated-rotated-points))
 
+(defn thrust-points []
+  (let [ship (state :ship)
+        ship-position (ship :position)
+        ship-x (ship-position 0)
+        ship-y (ship-position 1)
+        ship-size (ship :size)
+        ship-aspect (ship :aspect)
+        ship-center (find-ship-center)
+        ship-center-x (ship-center 0)
+        ship-center-y (ship-center 1)
+        ship-length ship-size
+        ship-width (* ship-size ship-aspect)
+        p1 [(- ship-center-x 12) (+ ship-center-y 3)]
+        p2 [(- ship-center-x 24) ship-center-y]
+        p3 [(- ship-center-x 12) (- ship-center-y 3)]
+        rotated-points (map (fn [p] (rotate-ship-point p)) [p1 p3 p2])
+        translated-rotated-points (map (fn [p] (vector-add ship-center p)) rotated-points)]
+      translated-rotated-points))
+
+(defn retro-thrust-points1 []
+  (let [ship (state :ship)
+        ship-center (find-ship-center)
+        ship-center-x (ship-center 0)
+        ship-center-y (ship-center 1)
+        p1 [ship-center-x (- ship-center-y 7)]
+        p2 [(+ ship-center-x 10) (- ship-center-y 9)]
+        p3 [ship-center-x (- ship-center-y 11)]
+        rotated-points (map (fn [p] (rotate-ship-point p)) [p1 p2 p3])
+        translated-rotated-points (map (fn [p] (vector-add ship-center p)) rotated-points)]
+    translated-rotated-points))
+
+(defn retro-thrust-points2 []
+  (let [ship (state :ship)
+        ship-center (find-ship-center)
+        ship-center-x (ship-center 0)
+        ship-center-y (ship-center 1)
+        p1 [ship-center-x (+ ship-center-y 7)]
+        p2 [(+ ship-center-x 10) (+ ship-center-y 9)]
+        p3 [ship-center-x (+ ship-center-y 11)]
+        rotated-points (map (fn [p] (rotate-ship-point p)) [p1 p3 p2])
+        translated-rotated-points (map (fn [p] (vector-add ship-center p)) rotated-points)]
+    translated-rotated-points))
+
 ##############
 # collisions #
 ##############
@@ -252,17 +296,29 @@
   (draw-circle
     (splice (map math/floor (asteroid :position)))
     (asteroid-radius asteroid)
-    :ray-white))
+    :white))
 
 (defn draw-asteroids []
   (loop [asteroid :in (state :asteroids)]
     (draw-asteroid asteroid)))
 
+(defn draw-thrust []
+  (draw-triangle (splice (thrust-points)) :orange))
+
+(defn draw-retro-thrust []
+  (draw-triangle (splice (retro-thrust-points1)) :orange)
+  (draw-triangle (splice (retro-thrust-points2)) :orange))
+
 (defn draw-ship []
-  (draw-triangle (splice (ship-points)) :ray-white))
+  (let [is-alternate-frame (< (% frame-counter 5) 3)]
+    (if (and (key-down? :up) is-alternate-frame)
+      (draw-thrust))
+    (if (and (key-down? :down) is-alternate-frame)
+      (draw-retro-thrust))
+    (draw-triangle (splice (ship-points)) :white)))
 
 (defn draw-bullet [bullet]
-  (draw-circle (splice (map math/floor (bullet :position))) 2 :ray-white))
+  (draw-circle (splice (map math/floor (bullet :position))) 2 :white))
 
 (defn draw-bullets []
   (loop [bullet :in (state :bullets)]
@@ -301,6 +357,7 @@
 ######################
 
 (defn update-state []
+  (++ frame-counter)
   (handle-keyboard-input)
   (move-ship)
   (move-bullets)
