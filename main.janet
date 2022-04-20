@@ -89,7 +89,8 @@
     :age 0})
 
 (defn make-ship [width height]
-  @{:size 25
+  @{:size 30
+    :aspect 0.8
     :position [(/ width 2) (/ height 2)]
     :orientation 0.0
     :velocity [0.0 0.0]})
@@ -162,11 +163,12 @@
         ship-position (ship :position)
         ship-x (ship-position 0)
         ship-y (ship-position 1)
-        ship-size (ship :size)]
-    [(/ (+ ship-x ship-x (+ ship-x ship-size)) 3)
-     (/ (+ ship-y (+ ship-y ship-size) (/ (+ (+ ship-y ship-size) ship-y) 2)) 3)]))
+        ship-size (ship :size)
+        ship-aspect (ship :aspect)]
+    [(+ ship-x (/ ship-size 3))
+     (+ ship-y (* (/ ship-size 2) ship-aspect))]))
 
-(defn rotate-point [point]
+(defn rotate-ship-point [point]
   (let [ship (state :ship)
         x1 (point 0)
         y1 (point 1)
@@ -183,11 +185,16 @@
         ship-x (ship-position 0)
         ship-y (ship-position 1)
         ship-size (ship :size)
+        ship-aspect (ship :aspect)
         ship-center (find-ship-center)
-        p1 (vector-add (rotate-point [ship-x ship-y]) ship-center)
-        p2 (vector-add (rotate-point [ship-x (+ ship-y ship-size)]) ship-center)
-        p3 (vector-add (rotate-point [(+ ship-x ship-size) (/ (+ (+ ship-y ship-size) ship-y) 2)]) ship-center)]
-    [p1 p2 p3]))
+        ship-length ship-size
+        ship-width (* ship-size ship-aspect)
+        p1 [ship-x ship-y]
+        p2 [ship-x (+ ship-y ship-width)]
+        p3 [(+ ship-x ship-length) (+ ship-y (/ ship-width 2))]
+        rotated-points (map (fn [p] (rotate-ship-point p)) [p1 p2 p3])
+        translated-rotated-points (map (fn [p] (vector-add ship-center p)) rotated-points)]
+    translated-rotated-points))
 
 ##############
 # collisions #
