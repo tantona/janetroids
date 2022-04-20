@@ -54,7 +54,7 @@
 ################
 
 (defn random-asteroid-velocity [size]
-  (let [base-speed 3]
+  (let [base-speed 2]
     (var speed base-speed)
     (repeat (- 3 size) (set speed (* 1.5 speed)))
     [(* speed (- (math/random) 0.5))
@@ -198,16 +198,16 @@
   (let [new-asteroids @[]]
     (if (> (asteroid :size) 1)
       (do
-        (spawn-asteroid (-- (asteroid :size)) (asteroid :position))
-        (spawn-asteroid (-- (asteroid :size)) (asteroid :position))))
+        (spawn-asteroid (- (asteroid :size) 1) (asteroid :position))
+        (spawn-asteroid (- (asteroid :size) 1) (asteroid :position))))
     (set (state :asteroids) (filter (fn [item] (not (= asteroid item))) (state :asteroids)))))
 
 (defn handle-bullet-collisions []
   (let [collisions (find-bullet-collisions)
         colliding-bullets (map last collisions)
         colliding-asteroids (map first collisions)
-        remaining-bullets (filter (fn [bullet] (index-of bullet colliding-bullets)) (state :bullets))]
-        (set (state :bullets) remaining-bullets)
+        remaining-bullets (filter (fn [bullet] (not (index-of bullet colliding-bullets))) (state :bullets))]
+    (set (state :bullets) remaining-bullets)
     (each asteroid colliding-asteroids (explode-asteroid asteroid))))
 
 (defn spawn-bullet [ship]
