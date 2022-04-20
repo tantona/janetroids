@@ -3,6 +3,7 @@
 
 (def screen-width 600)
 (def screen-height 600)
+(def max-bullet-age 60)
 (var state nil)
 
 (math/seedrandom (os/cryptorand 8))
@@ -60,7 +61,8 @@
 
 (defn make-bullet [pos velocity]
   @{:position pos
-    :velocity velocity})
+    :velocity velocity
+    :age 0})
 
 (defn make-ship [width height]
   @{:size 25
@@ -109,8 +111,10 @@
 
 (defn move-bullet [i]
   (let [bullet ((state :bullets) i)]
-    (cond
-      (set (bullet :position) (vector-add (bullet :position) (bullet :velocity))))))
+      (set (bullet :position)
+           (vector-add (bullet :position)
+                       (bullet :velocity)))
+      (set (bullet :age) (inc (bullet :age)))))
 
 (defn move-bullets []
   (var i 0)
@@ -172,8 +176,7 @@
 
 (defn handle-ship-collisions []
   (if (ship-collides?)
-    # (os/exit 1)
-    (print "boom")))
+    (os/exit 1)))
 
 (defn spawn-bullet [ship]
   (let [v (vector-mul [100 100] (calculate-thrust-vector))]
@@ -203,6 +206,10 @@
   (loop [bullet :in (state :bullets)]
     (draw-bullet bullet)))
 
+(defn cull-bullets []
+  (set (state :bullets)
+       (filter (fn (x) (< (x :age) max-bullet-age)) (state :bullets))))
+
 (defn handle-keyboard-input []
   (let [ship (state :ship)]
     (if (key-down? :left) (set (ship :orientation) (- (ship :orientation) 0.05)))
@@ -222,7 +229,8 @@
   (move-ship)
   (move-bullets)
   (move-asteroids)
-  (handle-ship-collisions))
+  (handle-ship-collisions)
+  (cull-bullets))
 
 (defn draw []
   (begin-drawing)
